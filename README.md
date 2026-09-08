@@ -16,9 +16,10 @@ SDA, GSA Assisted Acquisition Services) and writes a weekly digest.
 | SDA | HTML | Space Development Agency opportunities page. |
 | DIU | HTML | Open solicitations, filtered to space keywords. |
 | DoD SBIR/STTR | HTML | Topics app is JS-heavy; best-effort. |
+| NSTXL/SpEC | HTML | Public opportunities list; full RFPs are member-only. |
 | GSA AAS | HTML + SAM | AAS/FEDSIM solicitations themselves are on SAM.gov (covered by the FAS query) or eBuy (login-only, not scraped). |
 
-Not covered (login required): NRO ARC (acq.westfields.net), GSA eBuy, NSTXL/SpEC.
+Not covered (login required): NRO ARC (acq.westfields.net), GSA eBuy, NSTXL member portal.
 
 ## Run
 

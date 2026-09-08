@@ -76,6 +76,15 @@ PAGES = [
         "link_filter": None,
     },
     {
+        "name": "nstxl-spec",
+        "agency": "USSF",
+        "url": "https://nstxl.org/nstxl-opportunities/",
+        "scope": "main, #content, body",
+        "space_only": False,
+        "link_filter": None,
+        "extra_keywords": ["spec", "rfp", "rwp", "rfs", "rfi", "solicitation", "industry day", "opportunit"],
+    },
+    {
         "name": "gsa-aas",
         "agency": "GSA-AAS",
         "url": "https://www.gsa.gov/buy-through-us/products-and-services/professional-services/assisted-acquisition-services",
