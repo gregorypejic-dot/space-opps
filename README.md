@@ -10,7 +10,7 @@ SDA, GSA Assisted Acquisition Services) and writes a weekly digest.
 | SAM.gov | Opportunities API v2 | Needs `SAM_API_KEY`. Agency queries (USSF, SSC, NASA, NRO, SDA, GSA FAS/AAS) + space title keywords. GSA FAS results are kept only if space keywords match. |
 | Grants.gov | search2 API | NASA grants + space/satellite keyword hits across agencies. |
 | NSPIRES | HTML | NASA research solicitations (ROSES etc.). |
-| NASA SBIR/STTR | HTML | |
+| NASA SBIR/STTR | HTML | sbir.nasa.gov solicitations + nasa.gov/sbir_sttr opportunities. |
 | SSC Front Door | HTML | Space Systems Command industry portal. |
 | SpaceWERX | HTML | Challenges / open topics. |
 | SDA | HTML | Space Development Agency opportunities page. |
