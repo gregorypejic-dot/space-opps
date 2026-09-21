@@ -40,6 +40,12 @@ Outputs `out/opportunities.json`, `out/opportunities.csv`, `out/digest.md`. Item
 `state/seen.json` are flagged **NEW**; the state file is updated after each run (skip with
 `--no-update-state`). Limit sources with `--sources sam.gov,grants.gov,nspires`.
 
+Every item carries a one-sentence `summary` (shown under each bullet in the digest and as a CSV/JSON
+column) built by `space_opps/summarize.py` from data already fetched: for SAM.gov the notice type,
+PSC/NAICS title (offline tables in `space_opps/data/`), issuing office, set-aside and place; for
+NSPIRES the announcement type and number; for HTML sources the first descriptive sentence on the
+page, else a per-source template. No extra API calls are made.
+
 HTML sources are brittle by nature; a run logs a warning whenever a page yields zero links so a
 site redesign is noticed rather than silently dropping results.
 

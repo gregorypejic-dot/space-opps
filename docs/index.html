@@ -49,6 +49,7 @@
   .digest ul { padding-left: 20px; margin: 0; }
   .digest li { margin: 6px 0; }
   .digest li + li { border-top: 0; }
+  .digest .summary { display: block; color: var(--tertiary); font-size: 13.5px; margin-top: 2px; }
   .digest .new { color: var(--accent); font-weight: 500; font-size: 11.5px; letter-spacing: 0.04em; }
   .digest .failed { color: var(--ink); background: var(--card); padding: 0 4px; }
   .empty { color: var(--secondary); border: 1px solid var(--hairline); padding: 24px; }
@@ -144,6 +145,9 @@
       } else if ((m = /^\s*[-*]\s+(.*)$/.exec(line))) {
         if (!inList) { html.push("<ul>"); inList = true; }
         html.push("<li>" + inline(m[1]) + "</li>");
+      } else if (inList && /^\s{2,}\S/.test(line)) {
+        // Indented continuation line = the item's one-sentence summary.
+        html[html.length - 1] = html[html.length - 1].replace(/<\/li>$/, '<span class="summary">' + inline(line.trim()) + "</span></li>");
       } else if (line.trim() === "") {
         closeList();
       } else {

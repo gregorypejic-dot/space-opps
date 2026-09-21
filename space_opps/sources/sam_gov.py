@@ -13,6 +13,7 @@ import requests
 
 from ..config import ALWAYS_KEEP_AGENCIES, SPACE_KEYWORDS
 from ..models import Opportunity
+from ..summarize import sam_summary
 from ..util import classify_agency, log, matches_space, parse_date
 
 NAME = "sam.gov"
@@ -79,6 +80,7 @@ def _to_opp(row: dict) -> Opportunity:
         posted=parse_date(row.get("postedDate")),
         deadline=parse_date(row.get("responseDeadLine")),
         description=desc,
+        summary=sam_summary(row),
     )
 
 

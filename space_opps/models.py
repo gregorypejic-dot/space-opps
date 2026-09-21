@@ -17,6 +17,7 @@ class Opportunity:
     posted: Optional[date] = None
     deadline: Optional[date] = None
     description: str = ""
+    summary: str = ""
     tags: list[str] = field(default_factory=list)
 
     @property

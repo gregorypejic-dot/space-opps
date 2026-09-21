@@ -14,6 +14,7 @@ from pathlib import Path
 
 from .models import Opportunity
 from .sources import grants_gov, html_pages, sam_gov
+from .summarize import summarize
 from .util import log, session
 
 AGENCY_ORDER = ["USSF", "SDA", "NASA", "NRO", "GSA-AAS", "DIU", "MDA", "DOD"]
@@ -51,6 +52,8 @@ def collect(since: date, only: set[str] | None) -> tuple[list[Opportunity], dict
             opps += got
             status[name] = f"ok ({len(got)})" if got else "0 results"
 
+    for o in opps:
+        o.summary = summarize(o)
     return opps, status
 
 
@@ -97,6 +100,8 @@ def write_outputs(out: Path, opps: list[Opportunity], new_keys: set[str], status
                 meta.append(f"due {o.deadline.isoformat()}")
             meta.append(o.source)
             md.append(f"- {flag}[{o.title}]({o.url}) — {', '.join(meta)}")
+            if o.summary:
+                md.append(f"  {o.summary}")
         md.append("")
     digest = out / "digest.md"
     digest.write_text("\n".join(md))
