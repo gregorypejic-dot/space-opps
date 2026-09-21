@@ -2,10 +2,12 @@ from __future__ import annotations
 
 import logging
 import re
+import ssl
 from datetime import date, datetime
 from typing import Iterable, Optional
 
 import requests
+from requests.adapters import HTTPAdapter
 
 from .config import SPACE_KEYWORDS, TARGET_AGENCIES, USER_AGENT
 
@@ -66,9 +68,26 @@ def classify_agency(text: str) -> Optional[str]:
     return None
 
 
+class LegacyTLSAdapter(HTTPAdapter):
+    """Allows RSA-key-exchange ciphers (no forward secrecy) that Python's default
+    context rejects; some government hosts still negotiate only those."""
+
+    def init_poolmanager(self, *args, **kwargs):
+        ctx = ssl.create_default_context()
+        ctx.set_ciphers("DEFAULT:@SECLEVEL=1")
+        ctx.minimum_version = ssl.TLSVersion.TLSv1_2
+        kwargs["ssl_context"] = ctx
+        return super().init_poolmanager(*args, **kwargs)
+
+
+LEGACY_TLS_HOSTS = ["https://nspires.nasaprs.com"]
+
+
 def session() -> requests.Session:
     s = requests.Session()
     s.headers.update({"User-Agent": USER_AGENT, "Accept": "text/html,application/json;q=0.9,*/*;q=0.8"})
+    for host in LEGACY_TLS_HOSTS:
+        s.mount(host, LegacyTLSAdapter())
     return s
 
 

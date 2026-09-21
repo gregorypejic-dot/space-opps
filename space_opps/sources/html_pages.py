@@ -7,8 +7,8 @@ will silently reduce results, so main.py warns when a page yields zero links.
 """
 from __future__ import annotations
 
-from datetime import date
-from urllib.parse import urljoin
+from datetime import date, timedelta
+from urllib.parse import quote, urljoin
 
 import requests
 from bs4 import BeautifulSoup
@@ -21,10 +21,8 @@ PAGES = [
     {
         "name": "nspires",
         "agency": "NASA",
-        "url": "https://nspires.nasaprs.com/external/solicitations/solicitations.do?method=open&stack=push",
-        "scope": "table, #content, main, body",
-        "space_only": True,
-        "link_filter": "solicitations.do",
+        "url": "https://nspires.nasaprs.com/external/solicitations/solicitationsJSON.do?path=open",
+        "parser": "nspires_json",
     },
     {
         "name": "nasa-sbir",
@@ -74,7 +72,7 @@ PAGES = [
         "url": "https://www.diu.mil/work-with-us/open-solicitations",
         "scope": "main, body",
         "space_only": False,
-        "link_filter": "solicitation",
+        "link_filter": "submit-solution",
     },
     {
         "name": "dod-sbir",
@@ -96,11 +94,11 @@ PAGES = [
     {
         "name": "gsa-aas",
         "agency": "GSA-AAS",
-        "url": "https://www.gsa.gov/buy-through-us/products-and-services/professional-services/assisted-acquisition-services",
+        "url": "https://www.gsa.gov/assisted-acquisition-services/industry",
         "scope": "main, body",
         "space_only": False,
         "link_filter": None,
-        "extra_keywords": ["opportunit", "forecast", "solicitation", "industry day", "rfi", "rfq", "rfp"],
+        "extra_keywords": ["opportunit", "forecast", "solicitation", "industry day", "rfi", "rfq", "rfp", "dashboard", "interact"],
     },
 ]
 
@@ -108,7 +106,42 @@ NAV_NOISE = {"home", "about", "contact", "login", "log in", "sign in", "privacy"
              "faq", "faqs", "search", "menu", "skip to main content", "back to top", "careers", "news"}
 
 
-def _scrape(s: requests.Session, page: dict) -> list[Opportunity]:
+NSPIRES_SUMMARY = "https://nspires.nasaprs.com/external/solicitations/summary!init.do?solId={sid}&path=open"
+
+
+def _scrape_nspires_json(s: requests.Session, page: dict, since: date) -> list[Opportunity]:
+    """NSPIRES renders its open-solicitations table client-side from a DataTables JSON feed.
+    Keeps solicitations released in the window or with a proposal deadline in the next 30 days."""
+    rows = get(s, page["url"]).json().get("aaData", [])
+    horizon = date.today() + timedelta(days=30)
+    out = []
+    for row in rows:
+        released = parse_date(row.get("release_date"))
+        due = parse_date(row.get("proposal_due")) or parse_date(row.get("noi_due"))
+        recent = released is not None and released >= since
+        closing = due is not None and since <= due <= horizon
+        if not (recent or closing):
+            continue
+        sid = row.get("sId", "")
+        number = clean(row.get("solicitation_number", ""))
+        out.append(Opportunity(
+            source=page["name"],
+            title=clean(row.get("title", ""))[:200],
+            url=NSPIRES_SUMMARY.format(sid=quote(sid, safe="")),
+            agency=page["agency"],
+            notice_id=number or sid,
+            notice_type=clean(row.get("announcement_type", "")),
+            posted=released,
+            deadline=due,
+            description=f"{number} — status: {clean(row.get('status', ''))}",
+            tags=matches_space(row.get("title", "")),
+        ))
+    return out
+
+
+def _scrape(s: requests.Session, page: dict, since: date) -> list[Opportunity]:
+    if page.get("parser") == "nspires_json":
+        return _scrape_nspires_json(s, page, since)
     r = get(s, page["url"])
     soup = BeautifulSoup(r.text, "html.parser")
     scope = None
@@ -163,8 +196,8 @@ def fetch_all(s: requests.Session, since: date, only: set[str] | None = None) ->
         if only and page["name"] not in only:
             continue
         try:
-            opps = _scrape(s, page)
-        except requests.RequestException as e:
+            opps = _scrape(s, page, since)
+        except (requests.RequestException, ValueError) as e:
             log.warning("%s: fetch failed: %s", page["name"], e)
             results[page["name"]] = None
             continue

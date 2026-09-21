@@ -43,3 +43,26 @@ def test_sam_row_to_opp():
     assert opp.deadline == date(2026, 9, 30)
     assert "517410" in opp.description
     assert opp.key == Opportunity(source="sam.gov", title="x", url="y", notice_id="abc123").key
+
+
+def test_nspires_json_rows_filtered_by_window():
+    from datetime import timedelta
+    from unittest.mock import MagicMock
+
+    from space_opps.sources import html_pages
+
+    today = date.today()
+    rows = [
+        {"title": "A.17 Hydrosphere", "solicitation_number": "NNH25ZDA001N-HYDRO", "release_date": today.isoformat(),
+         "proposal_due": (today + timedelta(days=20)).isoformat(), "noi_due": "--", "status": "Open",
+         "announcement_type": "NRA", "sId": "{ABC}"},
+        {"title": "Old closed thing", "solicitation_number": "X", "release_date": "2020-01-01",
+         "proposal_due": "2020-02-01", "noi_due": "--", "status": "Open", "announcement_type": "NRA", "sId": "{OLD}"},
+    ]
+    s = MagicMock()
+    s.get.return_value.json.return_value = {"aaData": rows}
+    page = next(p for p in html_pages.PAGES if p["name"] == "nspires")
+    got = html_pages._scrape(s, page, today - timedelta(days=8))
+    assert [o.notice_id for o in got] == ["NNH25ZDA001N-HYDRO"]
+    assert got[0].url == "https://nspires.nasaprs.com/external/solicitations/summary!init.do?solId=%7BABC%7D&path=open"
+    assert got[0].deadline == today + timedelta(days=20)

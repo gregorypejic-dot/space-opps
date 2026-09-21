@@ -18,6 +18,7 @@ from ..util import classify_agency, log, matches_space, parse_date
 NAME = "sam.gov"
 API = "https://api.sam.gov/opportunities/v2/search"
 PAGE = 1000
+MAX_429_RETRIES = 3
 
 # Notice types: o=solicitation, p=presolicitation, r=sources sought, k=combined synopsis,
 # s=special notice, i=intent to bundle, a=award. We skip awards.
@@ -38,10 +39,16 @@ TITLE_QUERIES = ["space", "satellite", "launch", "orbit", "spacecraft", "lunar",
 def _paged(s: requests.Session, params: dict) -> list[dict]:
     out: list[dict] = []
     offset = 0
+    throttled = 0
     while True:
         p = dict(params, limit=PAGE, offset=offset)
         r = s.get(API, params=p, timeout=90)
         if r.status_code == 429:
+            if "quota" in r.text.lower():
+                raise RuntimeError(f"sam.gov daily API quota exhausted: {r.text[:200]}")
+            throttled += 1
+            if throttled > MAX_429_RETRIES:
+                r.raise_for_status()
             log.warning("sam.gov rate limited; sleeping 30s")
             time.sleep(30)
             continue
