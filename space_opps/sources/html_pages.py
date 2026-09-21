@@ -399,7 +399,7 @@ def fetch_all(s: requests.Session, since: date, only: set[str] | None = None) ->
             continue
         try:
             opps = _scrape(s, page, since)
-        except (requests.RequestException, ValueError, ET.ParseError) as e:
+        except Exception as e:  # noqa: BLE001 - one page must never kill the other pages
             log.warning("%s: fetch failed: %s", page["name"], e)
             results[page["name"]] = None
             continue
