@@ -110,11 +110,16 @@
   function safeHref(u) { return /^https?:\/\/[^\s<>"']+$/i.test(u) ? u : null; }
 
   function inline(text) {
-    var out = esc(text);
-    out = out.replace(/\[([^\]]+)\]\(([^)\s]+)\)/g, function (m, label, url) {
-      var href = safeHref(url);
-      return href ? '<a href="' + esc(href) + '" rel="noopener">' + label + "</a>" : label;
-    });
+    // Links are split out of the raw text so label and href are each escaped exactly once.
+    var out = "";
+    var re = /\[([^\]]+)\]\(([^)\s]+)\)/g, last = 0, m;
+    while ((m = re.exec(text)) !== null) {
+      out += esc(text.slice(last, m.index));
+      var href = safeHref(m[2]);
+      out += href ? '<a href="' + esc(href) + '" rel="noopener">' + esc(m[1]) + "</a>" : esc(m[1]);
+      last = m.index + m[0].length;
+    }
+    out += esc(text.slice(last));
     out = out.replace(/\*\*NEW\*\*/g, '<span class="new">NEW</span>');
     out = out.replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>");
     out = out.replace(/(: )(FAILED[^<]*)/g, '$1<span class="failed">$2</span>');
