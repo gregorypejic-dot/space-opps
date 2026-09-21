@@ -19,15 +19,18 @@ from pathlib import Path
 DATE_RE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
 HEADER_RE = re.compile(r"^Window: .*?\. (\d+) total, \*\*(\d+) new\*\*", re.M)
 FAILED_RE = re.compile(r"^- ([\w.\-]+): FAILED", re.M)
+SOFTWARE_RE = re.compile(r"\*\*(\d+) software-related\*\*", re.M)
 
 
 def _summary(md_path: Path) -> dict:
     text = md_path.read_text(encoding="utf-8", errors="replace")
     m = HEADER_RE.search(text)
+    sw = SOFTWARE_RE.search(text)
     return {
         "date": md_path.stem,
         "total": int(m.group(1)) if m else None,
         "new": int(m.group(2)) if m else None,
+        "software": int(sw.group(1)) if sw else None,
         "failed_sources": FAILED_RE.findall(text),
         "md": f"digests/{md_path.stem}.md",
         "csv": f"digests/{md_path.stem}.csv" if md_path.with_suffix(".csv").exists() else None,

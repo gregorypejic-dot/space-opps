@@ -13,6 +13,7 @@ from datetime import date, timedelta
 from pathlib import Path
 
 from .models import Opportunity
+from .software import software_tags
 from .sources import grants_gov, html_pages, sam_gov
 from .summarize import summarize
 from .util import log, session
@@ -54,6 +55,7 @@ def collect(since: date, only: set[str] | None) -> tuple[list[Opportunity], dict
 
     for o in opps:
         o.summary = summarize(o)
+        o.software = software_tags(o)
     return opps, status
 
 
@@ -72,8 +74,10 @@ def write_outputs(out: Path, opps: list[Opportunity], new_keys: set[str], status
         w.writeheader()
         w.writerows(rows)
 
+    software = [o for o in opps if o.software]
     md = [f"# Space opportunities digest — {date.today().isoformat()}",
-          f"Window: posted since {since.isoformat()}. {len(opps)} total, **{len(new_keys)} new** since last run.", ""]
+          f"Window: posted since {since.isoformat()}. {len(opps)} total, **{len(new_keys)} new** since last run, "
+          f"**{len(software)} software-related**.", ""]
     md.append("## Source status")
     for k, v in status.items():
         md.append(f"- {k}: {v}")
@@ -81,6 +85,30 @@ def write_outputs(out: Path, opps: list[Opportunity], new_keys: set[str], status
 
     def sort_key(o: Opportunity):
         return (o.key not in new_keys, o.deadline or date.max, o.title.lower())
+
+    def bullet(o: Opportunity) -> list[str]:
+        flag = ("**NEW** " if o.key in new_keys else "") + ("**SOFTWARE** " if o.software else "")
+        meta = []
+        if o.notice_type:
+            meta.append(o.notice_type)
+        if o.posted:
+            meta.append(f"posted {o.posted.isoformat()}")
+        if o.deadline:
+            meta.append(f"due {o.deadline.isoformat()}")
+        meta.append(o.source)
+        lines = [f"- {flag}[{o.title}]({o.url}) — {', '.join(meta)}"]
+        if o.summary:
+            lines.append(f"  {o.summary}")
+        if o.software:
+            lines.append(f"  Software: {', '.join(o.software[:4])}")
+        return lines
+
+    md.append(f"## Software-related ({len(software)})")
+    md.append("Opportunities that are fundamentally software work (development, modernization, sustainment), "
+              "flagged from software NAICS/PSC codes and keywords. Also marked **SOFTWARE** in the agency lists below.")
+    for o in sorted(software, key=lambda o: (o.key not in new_keys, o.agency, o.deadline or date.max)):
+        md += bullet(o)
+    md.append("")
 
     by_agency: dict[str, list[Opportunity]] = {}
     for o in opps:
@@ -90,18 +118,7 @@ def write_outputs(out: Path, opps: list[Opportunity], new_keys: set[str], status
         items = sorted(by_agency[agency], key=sort_key)
         md.append(f"## {agency} ({len(items)})")
         for o in items:
-            flag = "**NEW** " if o.key in new_keys else ""
-            meta = []
-            if o.notice_type:
-                meta.append(o.notice_type)
-            if o.posted:
-                meta.append(f"posted {o.posted.isoformat()}")
-            if o.deadline:
-                meta.append(f"due {o.deadline.isoformat()}")
-            meta.append(o.source)
-            md.append(f"- {flag}[{o.title}]({o.url}) — {', '.join(meta)}")
-            if o.summary:
-                md.append(f"  {o.summary}")
+            md += bullet(o)
         md.append("")
     digest = out / "digest.md"
     digest.write_text("\n".join(md))

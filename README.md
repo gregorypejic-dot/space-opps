@@ -48,6 +48,13 @@ PSC/NAICS title (offline tables in `space_opps/data/`), issuing office, set-asid
 NSPIRES the announcement type and number; for HTML sources the first descriptive sentence on the
 page, else a per-source template. No extra API calls are made.
 
+Software-related opportunities (greenfield development, brownfield modernization/sustainment,
+software licenses/SaaS) are flagged by `space_opps/software.py` from software NAICS codes
+(541511/541512/541519, 511210/513210, 518210), software PSC codes (7030, D302/D306/D307/D308/D318/D319/D399,
+DA*, DB10, DF*, DG*) and word-start keyword matches. They get a **SOFTWARE** marker, a `Software:` reason
+line and their own section at the top of the digest, an `is_software` CSV/JSON column plus the
+`software` reasons list, and a badge/"Software only" filter on the site.
+
 HTML sources are brittle by nature; a run logs a warning whenever a page yields zero links so a
 site redesign is noticed rather than silently dropping results.
 
