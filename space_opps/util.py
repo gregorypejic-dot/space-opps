@@ -41,11 +41,18 @@ def parse_date(value: Optional[str]) -> Optional[date]:
             continue
     m = re.search(r"(\d{4})-(\d{2})-(\d{2})", value)
     if m:
-        return date(int(m.group(1)), int(m.group(2)), int(m.group(3)))
+        return _safe_date(m.group(1), m.group(2), m.group(3))
     m = re.search(r"(\d{1,2})/(\d{1,2})/(\d{4})", value)
     if m:
-        return date(int(m.group(3)), int(m.group(1)), int(m.group(2)))
+        return _safe_date(m.group(3), m.group(1), m.group(2))
     return None
+
+
+def _safe_date(y: str, mo: str, d: str) -> Optional[date]:
+    try:
+        return date(int(y), int(mo), int(d))
+    except ValueError:
+        return None
 
 
 def matches_space(text: str, keywords: Iterable[str] = SPACE_KEYWORDS) -> list[str]:
