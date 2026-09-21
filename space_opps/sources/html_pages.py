@@ -7,7 +7,9 @@ will silently reduce results, so main.py warns when a page yields zero links.
 """
 from __future__ import annotations
 
+import xml.etree.ElementTree as ET
 from datetime import date, timedelta
+from email.utils import parsedate_to_datetime
 from urllib.parse import quote, urljoin, urlparse
 
 import requests
@@ -120,6 +122,71 @@ PAGES = [
         "extra_keywords": ["solicitation", "opportunit", "baa", "broad agency", "rfp", "rfi", "sbir", "sttr",
                            "needipedia", "innovation", "acquisition", "partnering", "doing business", "needs"],
     },
+    # Department of Commerce: Office of Space Commerce (OSC) and NOAA. OSC is a WordPress site;
+    # the article body is `article .entry-content`, which skips the very large site menu.
+    {
+        "name": "osc-doc-opportunities",
+        "agency": "DOC-OSC",
+        "url": "https://space.commerce.gov/links/resources-for-space-entrepreneurs/opportunities-department-of-commerce-agencies/",
+        "scope": "article .entry-content, article, main",
+        "space_only": False,
+        "link_filter": None,
+        "extra_keywords": ["tracss", "commercial data", "acquisition", "technology partnerships", "data buy"],
+    },
+    {
+        "name": "osc-noaa-satellite-architecture",
+        "agency": "NOAA",
+        "url": "https://space.commerce.gov/business-with-noaa/future-noaa-satellite-architecture/",
+        "scope": "article .entry-content, article, main",
+        "space_only": True,
+        "link_filter": None,
+    },
+    {
+        "name": "osc-tracss",
+        "agency": "DOC-OSC",
+        "url": "https://space.commerce.gov/traffic-coordination-system-for-space-tracss/",
+        "scope": "article .entry-content, article, main",
+        "space_only": False,
+        "link_filter": None,
+        "extra_keywords": ["tracss", "registration", "waitlist", "forum", "specification", "dataset", "presentation",
+                           "pathfinder", "user agreement", "listening session"],
+    },
+    {
+        "name": "osc-cdp-industry-day",
+        "agency": "NOAA",
+        "url": "https://space.commerce.gov/commercial-data-program-industry-day-april-9/",
+        "scope": "article .entry-content, article, main",
+        "space_only": True,
+        "link_filter": None,
+    },
+    {
+        # OSC news feed: catches future industry days, RFIs and TraCSS calls as they are posted.
+        "name": "osc-news",
+        "agency": "DOC-OSC",
+        "url": "https://space.commerce.gov/feed/",
+        "parser": "rss",
+        "extra_keywords": ["industry day", "rfi", "rfp", "solicitation", "call for", "request for", "tracss",
+                           "commercial data", "waitlist", "registration", "forum", "workshop", "listening session"],
+    },
+    {
+        "name": "noaa-tpo",
+        "agency": "NOAA",
+        "url": "https://techpartnerships.noaa.gov/",
+        "scope": "#content, main, body",
+        "space_only": False,
+        "link_filter": None,
+        "extra_keywords": ["funding opportunit", "sbir", "nofo", "crada", "partner with noaa"],
+    },
+    {
+        "name": "noaa-sbir",
+        "agency": "NOAA",
+        "url": "https://techpartnerships.noaa.gov/sbir/fundingopportunities/",
+        "scope": "#content, main, body",
+        "space_only": False,
+        "link_filter": None,
+        "extra_keywords": ["nofo", "notice of funding", "sbir", "solicitation", "grants.gov", "phase i", "phase ii"],
+        "self_item": True,  # between NOFOs the page has no links; report the page's own status text
+    },
 ]
 
 NAV_NOISE = {"home", "about", "contact", "login", "log in", "sign in", "privacy", "accessibility",
@@ -217,11 +284,51 @@ def _scrape_dtic_accordion(s: requests.Session, page: dict, since: date) -> list
     return list(out.values())
 
 
+def _scrape_rss(s: requests.Session, page: dict, since: date) -> list[Opportunity]:
+    """RSS 2.0 feed (WordPress `/feed/`): one item per post, kept on a keyword hit and posted >= since."""
+    r = get(s, page["url"])
+    root = ET.fromstring(r.content)
+    keywords = SPACE_KEYWORDS + page.get("extra_keywords", [])
+    out: list[Opportunity] = []
+    for item in root.iter("item"):
+        title = clean(item.findtext("title") or "")
+        link = (item.findtext("link") or "").strip()
+        if not title or not link.startswith(("http://", "https://")):
+            continue
+        posted = None
+        pub = item.findtext("pubDate")
+        if pub:
+            try:
+                posted = parsedate_to_datetime(pub).date()
+            except (TypeError, ValueError):
+                posted = None
+        if posted and posted < since:
+            continue
+        blurb = clean(BeautifulSoup(item.findtext("description") or "", "html.parser").get_text(" "))
+        hits = matches_space(f"{title} {blurb}", keywords)
+        if not hits:
+            continue
+        out.append(Opportunity(
+            source=page["name"],
+            title=title[:200],
+            url=link,
+            agency=page["agency"],
+            notice_id=link,
+            notice_type="news",
+            posted=posted,
+            description=blurb[:300],
+            tags=hits,
+        ))
+    return out
+
+
 def _scrape(s: requests.Session, page: dict, since: date) -> list[Opportunity]:
     if page.get("parser") == "nspires_json":
         return _scrape_nspires_json(s, page, since)
     if page.get("parser") == "dtic_accordion":
         return _scrape_dtic_accordion(s, page, since)
+    if page.get("parser") == "rss":
+        return _scrape_rss(s, page, since)
     r = get(s, page["url"])
     soup = BeautifulSoup(r.text, "html.parser")
     scope = None
@@ -270,6 +377,16 @@ def _scrape(s: requests.Session, page: dict, since: date) -> list[Opportunity]:
             posted=posted,
             description=ctx[:300] if ctx != text else "",
             tags=hits,
+        )
+    if not out and page.get("self_item"):
+        heading = scope.find(["h1", "h2"]) or soup.find("title")
+        out[page["url"]] = Opportunity(
+            source=page["name"],
+            title=(clean(heading.get_text(" ")) if heading else page["name"])[:200],
+            url=page["url"],
+            agency=page["agency"],
+            notice_id=page["url"],
+            description=clean(scope.get_text(" "))[:300],
         )
     return list(out.values())
 

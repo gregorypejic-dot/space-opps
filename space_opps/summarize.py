@@ -49,6 +49,13 @@ _SOURCE_TEMPLATES = {
     "ssc-events": "Space Systems Command Front Door industry event.",
     "ssc-front-door": "Space Systems Command Front Door item.",
     "grants.gov": "Federal grant funding opportunity.",
+    "osc-doc-opportunities": "Commerce/NOAA program listed on the Office of Space Commerce opportunities page.",
+    "osc-noaa-satellite-architecture": "NOAA next-generation satellite architecture industry engagement item.",
+    "osc-tracss": "Office of Space Commerce TraCSS (space traffic coordination) item for operators and industry.",
+    "osc-cdp-industry-day": "NOAA/NESDIS Commercial Data Program industry day resource.",
+    "osc-news": "Office of Space Commerce news post.",
+    "noaa-tpo": "NOAA Technology Partnerships Office (SBIR, CRADA, tech transfer) item.",
+    "noaa-sbir": "NOAA SBIR funding-opportunity item.",
 }
 
 
@@ -106,7 +113,8 @@ def _first_prose_sentence(opp: Opportunity) -> str:
     title = re.sub(r"\s+", " ", opp.title).strip().lower()
     if text.lower().startswith(title):
         text = text[len(title):].lstrip(" -—:|")
-    for sent in re.split(r"(?<!\bU\.S)(?<!\bU\.S\.A)(?<=[.!?])\s+", text):
+    for sent in re.split(r"(?<!\bU\.S\.)(?<!\bU\.S\.A\.)(?<=[.!?])\s+", text):
+        sent = re.sub(r"^[A-Z][a-z]+ \d{1,2}, \d{4}\s+", "", sent.lstrip(" -–—:|"))
         low = sent.lower()
         if len(sent) < 25 or low.startswith(title) or title.startswith(low.rstrip(".")):
             continue
