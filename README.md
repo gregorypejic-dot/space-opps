@@ -22,6 +22,12 @@ SDA, GSA Assisted Acquisition Services) and writes a weekly digest.
 
 Not covered (login required): NRO ARC (acq.westfields.net), GSA eBuy, NSTXL member portal.
 
+"Space" means outer space. Keywords (`SPACE_KEYWORDS` in `config.py`) match at a word start, so
+`spacer`, `cyberspace`, `greenspace` never hit. When `space` is the only keyword hit, the item is
+dropped if it reads as real estate (`REAL_ESTATE_SPACE`: lease/RLP, office/hangar/warehouse space,
+square footage, confined space…). Everything from USSF, NASA, NRO and SDA on SAM.gov is kept
+regardless of keywords, since enabling functions at those agencies are in scope.
+
 ## Run
 
 ```bash
