@@ -24,8 +24,15 @@
   .bar img { height: 22px; display: block; }
   .bar .mono { color: var(--tertiary); }
   main { max-width: 1120px; margin: 0 auto; padding: 32px 24px 64px; display: grid; grid-template-columns: 280px 1fr; gap: 40px; }
+  main > * { min-width: 0; }
+  #digest, .downloads, .card { overflow-wrap: anywhere; }
   @media (max-width: 800px) { main { grid-template-columns: 1fr; } }
+  @media (max-width: 520px) {
+    .bar, main { padding-left: 16px; padding-right: 16px; }
+    .stats-grid { grid-template-columns: 1fr; }
+  }
   h1 { font-size: 28px; font-weight: 500; letter-spacing: -0.01em; margin: 0 0 6px; }
+  @media (max-width: 520px) { h1 { font-size: 24px; } }
   h2 { font-size: 17px; font-weight: 500; margin: 32px 0 10px; }
   .lede { color: var(--secondary); margin: 0 0 28px; }
   .eyebrow { color: var(--tertiary); text-transform: uppercase; letter-spacing: 0.06em; font-size: 11.5px; margin-bottom: 10px; }
@@ -196,9 +203,12 @@
       }
       $("updated").textContent = "Latest run " + runs[0].date;
       renderList();
-      var wanted = location.hash.slice(1);
-      var pick = runs.filter(function (r) { return r.date === wanted; })[0] || runs[0];
-      show(pick);
+      var showFromHash = function () {
+        var wanted = location.hash.slice(1);
+        show(runs.filter(function (r) { return r.date === wanted; })[0] || runs[0]);
+      };
+      window.addEventListener("hashchange", showFromHash);
+      showFromHash();
     })
     .catch(function () {
       $("updated").textContent = "Index unavailable";
