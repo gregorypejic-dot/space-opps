@@ -17,7 +17,7 @@ from .sources import grants_gov, html_pages, sam_gov
 from .summarize import summarize
 from .util import log, session
 
-AGENCY_ORDER = ["USSF", "SDA", "NASA", "NRO", "GSA-AAS", "DIU", "MDA", "DOD"]
+AGENCY_ORDER = ["USSF", "SDA", "NASA", "NRO", "DOC-OSC", "NOAA", "GSA-AAS", "DIU", "MDA", "DOD"]
 
 
 def collect(since: date, only: set[str] | None) -> tuple[list[Opportunity], dict[str, str]]:

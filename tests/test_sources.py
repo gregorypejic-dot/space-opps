@@ -113,6 +113,7 @@ def test_rss_feed_keeps_recent_keyword_posts_only(monkeypatch):
       <item><title>Old TraCSS industry day</title><link>https://space.commerce.gov/old/</link>
         <pubDate>Mon, 01 Jan 2024 00:00:00 +0000</pubDate><description>x</description></item>
       <item><title>Bad link space item</title><link>javascript:alert(1)</link><pubDate>{recent}</pubDate></item>
+      <item><title>Undated space item</title><link>https://space.commerce.gov/undated/</link></item>
     </channel></rss>"""
 
     class R:
@@ -124,6 +125,14 @@ def test_rss_feed_keeps_recent_keyword_posts_only(monkeypatch):
     assert [o.url for o in got] == ["https://space.commerce.gov/osc-seeks-proposals/"]
     assert got[0].agency == "DOC-OSC" and got[0].posted == date.today() - timedelta(days=2)
     assert got[0].description == "OSC requires a study of the U.S. commercial space economy."
+
+
+def test_malformed_rss_is_isolated(monkeypatch):
+    class R:
+        content = b"<rss><channel><item><title>x"
+
+    monkeypatch.setattr(html_pages, "get", lambda s, url: R())
+    assert html_pages.fetch_all(None, date(2026, 1, 1), {"osc-news"}) == {"osc-news": None}
 
 
 def test_self_item_page_reports_its_own_status_when_linkless(monkeypatch):
