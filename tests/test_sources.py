@@ -10,6 +10,7 @@ from bs4 import BeautifulSoup
 
 from space_opps import publish
 from space_opps.sources import html_pages
+from space_opps.util import parse_date
 
 NSPIRES_PAGE = next(p for p in html_pages.PAGES if p["name"] == "nspires")
 
@@ -73,6 +74,7 @@ def test_page_urls_are_current():
     assert urls["gsa-aas"] == "https://www.gsa.gov/assisted-acquisition-services/industry"
     assert urls["nstxl-spec"] == "https://info.nstxl.org/spec"
     assert urls["ssc-events"] == "https://sscfrontdoor.experience.crmforce.mil/SSCFrontDoor/s/events"
+    assert urls["dtic-dod-agencies"] == "https://defenseinnovationmarketplace.dtic.mil/business-opportunities/dod-agencies/"
     assert urls["nspires"].startswith("https://nspires.nasaprs.com/external/solicitations/solicitationsJSON.do")
     assert all(u.startswith("https://") for u in urls.values())
     assert len(urls) == len(html_pages.PAGES), "duplicate source names"
@@ -95,6 +97,36 @@ def test_generic_link_text_uses_nearest_heading(monkeypatch):
     got = html_pages._scrape(None, page, date(2026, 1, 1))
     assert [o.url for o in got] == ["https://info.nstxl.org/gps-gen4"]
     assert got[0].title.startswith("Space Enterprise Consortium (SpEC) GPS Gen4")
+
+
+def test_dtic_accordion_titles_links_by_agency_and_keeps_open_table_rows(monkeypatch):
+    html = """
+    <div class="sow-accordion-panel"><div class="sow-accordion-title">Missile Defense Agency (MDA)</div>
+      <a href="http://www.mda.mil/business/advanced_research.html">Advanced Research BAA</a>
+      <a href="https://www.fbo.gov/?id=1">Old BAA solicitation</a>
+      <a href="/about">About the agency</a></div>
+    <table class="tablepress"><tbody>
+      <tr><td>Air Force</td><td>2019-09-27</td><td>Old BAA</td><td>2024-10-01</td><td>FA8650-19-S-1932</td></tr>
+      <tr><td>Army</td><td>2026-09-01</td><td>Open BAA</td><td>2099-01-01</td><td>W56KGU-26-R-0001</td></tr>
+      <tr><td>Navy</td><td>2018-14-01</td><td>Bad date</td><td>2018-99-99</td><td>N00001</td></tr>
+    </tbody></table>"""
+
+    class R:
+        text = html
+
+    monkeypatch.setattr(html_pages, "get", lambda s, url: R())
+    page = next(p for p in html_pages.PAGES if p["name"] == "dtic-dod-agencies")
+    got = html_pages._scrape(None, page, date(2026, 1, 1))
+    assert [o.title for o in got] == ["Missile Defense Agency (MDA): Advanced Research BAA", "Army: Open BAA"]
+    assert got[1].notice_id == "W56KGU-26-R-0001"
+    assert got[1].url == "https://sam.gov/search/?keywords=W56KGU-26-R-0001"
+    assert got[1].deadline == date(2099, 1, 1)
+
+
+def test_parse_date_rejects_impossible_dates():
+    assert parse_date("2018-14-01") is None
+    assert parse_date("13/45/2020") is None
+    assert parse_date("2026-09-21") == date(2026, 9, 21)
 
 
 def test_publish_copies_indexes_and_imports_legacy(tmp_path: Path):

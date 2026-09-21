@@ -18,6 +18,7 @@ SDA, GSA Assisted Acquisition Services) and writes a weekly digest.
 | DoD SBIR/STTR | HTML | Topics app is JS-heavy; best-effort. |
 | NSTXL/SpEC | HTML | Space Enterprise Consortium page (info.nstxl.org/spec); generic CTA links ("Register Here") are titled from the nearest heading. Full RFPs are member-only. |
 | GSA AAS | HTML + SAM | gsa.gov/assisted-acquisition-services/industry only links to Interact and a Tableau dashboard; AAS/FEDSIM solicitations themselves are on SAM.gov (covered by the FAS query) or eBuy (login-only, not scraped). |
+| DTIC DoD agencies (DAFA) | HTML | defenseinnovationmarketplace.dtic.mil/business-opportunities/dod-agencies: one accordion per Defense Agency/Field Activity (DARPA, MDA, DTRA, NGA, NSA…); solicitation/BAA links are titled `<Agency>: <link>`. Dead fbo.gov links are dropped. Its "Contract Opportunities" table is historical (last posting 2019); rows are kept only while their response date is in the future and link to a SAM.gov keyword search on the solicitation number. |
 
 Not covered (login required): NRO ARC (acq.westfields.net), GSA eBuy, NSTXL member portal.
 

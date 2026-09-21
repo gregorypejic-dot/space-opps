@@ -8,7 +8,7 @@ will silently reduce results, so main.py warns when a page yields zero links.
 from __future__ import annotations
 
 from datetime import date, timedelta
-from urllib.parse import quote, urljoin
+from urllib.parse import quote, urljoin, urlparse
 
 import requests
 from bs4 import BeautifulSoup
@@ -112,6 +112,14 @@ PAGES = [
         "link_filter": None,
         "extra_keywords": ["opportunit", "forecast", "solicitation", "industry day", "rfi", "rfq", "rfp", "dashboard", "interact"],
     },
+    {
+        "name": "dtic-dod-agencies",
+        "agency": "DoD-DAFA",
+        "url": "https://defenseinnovationmarketplace.dtic.mil/business-opportunities/dod-agencies/",
+        "parser": "dtic_accordion",
+        "extra_keywords": ["solicitation", "opportunit", "baa", "broad agency", "rfp", "rfi", "sbir", "sttr",
+                           "needipedia", "innovation", "acquisition", "partnering", "doing business", "needs"],
+    },
 ]
 
 NAV_NOISE = {"home", "about", "contact", "login", "log in", "sign in", "privacy", "accessibility",
@@ -155,9 +163,65 @@ def _scrape_nspires_json(s: requests.Session, page: dict, since: date) -> list[O
     return out
 
 
+def _scrape_dtic_accordion(s: requests.Session, page: dict, since: date) -> list[Opportunity]:
+    """DTIC's DoD agencies page is one accordion panel per Defense Agency/Field Activity, each
+    holding links to that agency's solicitation pages, plus a 'Contract Opportunities' table.
+    Panel links are titled '<Agency>: <link text>'; table rows are kept only while still open."""
+    soup = BeautifulSoup(get(s, page["url"]).text, "html.parser")
+    keywords = SPACE_KEYWORDS + page.get("extra_keywords", [])
+    out: dict[str, Opportunity] = {}
+    for panel in soup.select(".sow-accordion-panel"):
+        title_el = panel.select_one(".sow-accordion-title")
+        agency = clean(title_el.get_text(" ")) if title_el else ""
+        for a in panel.find_all("a", href=True):
+            text = clean(a.get_text(" "))
+            href = a["href"].strip()
+            if not text or href.startswith(("#", "mailto:", "javascript:")) or href.lower().endswith(".pdf"):
+                continue
+            hits = matches_space(text, keywords)
+            if not hits:
+                continue
+            url = urljoin(page["url"], href)
+            if url in out or urlparse(url).netloc.endswith("fbo.gov"):  # FBO.gov retired 2019
+                continue
+            out[url] = Opportunity(
+                source=page["name"],
+                title=f"{agency}: {text}"[:200] if agency else text[:200],
+                url=url,
+                agency=page["agency"],
+                notice_id=url,
+                description=agency,
+                tags=hits,
+            )
+    today = date.today()
+    for row in soup.select("table.tablepress tbody tr"):
+        cells = [clean(td.get_text(" ")) for td in row.find_all("td")]
+        if len(cells) < 5:
+            continue
+        agency, posted, title, due, number = cells[:5]
+        deadline = parse_date(due)
+        if deadline is None or deadline < today:
+            continue
+        url = f"https://sam.gov/search/?keywords={quote(number)}"
+        out[url] = Opportunity(
+            source=page["name"],
+            title=f"{agency}: {title}"[:200],
+            url=url,
+            agency=page["agency"],
+            notice_id=number,
+            posted=parse_date(posted),
+            deadline=deadline,
+            description=f"{number} — listed on DTIC Defense Innovation Marketplace",
+            tags=matches_space(title, keywords),
+        )
+    return list(out.values())
+
+
 def _scrape(s: requests.Session, page: dict, since: date) -> list[Opportunity]:
     if page.get("parser") == "nspires_json":
         return _scrape_nspires_json(s, page, since)
+    if page.get("parser") == "dtic_accordion":
+        return _scrape_dtic_accordion(s, page, since)
     r = get(s, page["url"])
     soup = BeautifulSoup(r.text, "html.parser")
     scope = None
