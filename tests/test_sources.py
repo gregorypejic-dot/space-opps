@@ -1,4 +1,7 @@
 import json
+import re
+import shutil
+import subprocess
 from datetime import date, timedelta
 from pathlib import Path
 
@@ -133,3 +136,15 @@ def test_index_html_reads_index_json_from_the_published_path():
     assert 'fetch("digests/index.json"' in text
     assert (html.parent / "assets" / "cognition-lockup-black.svg").exists()
     assert BeautifulSoup(text, "html.parser").find("img", alt="Cognition") is not None
+
+
+@pytest.mark.skipif(shutil.which("node") is None, reason="node not installed")
+def test_index_html_escapes_hrefs_exactly_once():
+    html = (Path(__file__).resolve().parents[1] / "docs" / "index.html").read_text()
+    script = re.search(r"<script>([\s\S]*?)</script>", html).group(1)
+    fns = re.search(r"function esc[\s\S]*?\n  }\n[\s\S]*?function inline[\s\S]*?\n  }\n", script).group(0)
+    js = fns + '\nprocess.stdout.write(inline("- **NEW** [A & B <x>](https://h/s?solId=%7B1%7D&path=open) — sam.gov"));'
+    out = subprocess.run(["node", "-e", js], capture_output=True, text=True, check=True).stdout
+    assert 'href="https://h/s?solId=%7B1%7D&amp;path=open"' in out
+    assert "&amp;amp;" not in out
+    assert ">A &amp; B &lt;x&gt;</a>" in out
