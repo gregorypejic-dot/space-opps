@@ -302,7 +302,7 @@ def _scrape_rss(s: requests.Session, page: dict, since: date) -> list[Opportunit
                 posted = parsedate_to_datetime(pub).date()
             except (TypeError, ValueError):
                 posted = None
-        if posted and posted < since:
+        if posted is None or posted < since:
             continue
         blurb = clean(BeautifulSoup(item.findtext("description") or "", "html.parser").get_text(" "))
         hits = matches_space(f"{title} {blurb}", keywords)
@@ -399,7 +399,7 @@ def fetch_all(s: requests.Session, since: date, only: set[str] | None = None) ->
             continue
         try:
             opps = _scrape(s, page, since)
-        except (requests.RequestException, ValueError) as e:
+        except Exception as e:  # noqa: BLE001 - one page must never kill the other pages
             log.warning("%s: fetch failed: %s", page["name"], e)
             results[page["name"]] = None
             continue
