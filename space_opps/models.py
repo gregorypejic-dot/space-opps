@@ -19,6 +19,7 @@ class Opportunity:
     description: str = ""
     summary: str = ""
     tags: list[str] = field(default_factory=list)
+    software: list[str] = field(default_factory=list)  # reasons it is software work; empty = not software
 
     @property
     def key(self) -> str:
@@ -28,6 +29,7 @@ class Opportunity:
     def to_dict(self) -> dict:
         d = asdict(self)
         d["key"] = self.key
+        d["is_software"] = bool(self.software)
         d["posted"] = self.posted.isoformat() if self.posted else None
         d["deadline"] = self.deadline.isoformat() if self.deadline else None
         return d

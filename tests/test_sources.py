@@ -212,7 +212,7 @@ def test_publish_copies_indexes_and_imports_legacy(tmp_path: Path):
     assert json.loads((docs / "digests" / "index.json").read_text()) == runs
     assert [r["date"] for r in runs] == ["2026-09-28", "2026-09-21"]
     assert runs[0] == {
-        "date": "2026-09-28", "total": 52, "new": 7, "failed_sources": ["diu"],
+        "date": "2026-09-28", "total": 52, "new": 7, "software": None, "failed_sources": ["diu"],
         "md": "digests/2026-09-28.md", "csv": "digests/2026-09-28.csv",
     }
     assert not (docs / "digests" / "notes.md").exists()

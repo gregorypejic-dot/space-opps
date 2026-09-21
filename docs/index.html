@@ -42,7 +42,7 @@
   .card { background: var(--card); border: 1px solid var(--hairline); padding: 16px 18px; margin: 0 0 24px; }
   .card .stat { font-size: 34px; font-weight: 300; color: var(--accent); line-height: 1.1; }
   .card .label { color: var(--secondary); font-size: 12.5px; }
-  .stats-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 18px; }
+  .stats-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 18px; }
   .downloads { display: flex; gap: 18px; flex-wrap: wrap; margin-top: 12px; }
   .digest h1 { font-size: 22px; margin-top: 0; }
   .digest h2 { border-bottom: 1px solid var(--hairline); padding-bottom: 6px; }
@@ -51,6 +51,11 @@
   .digest li + li { border-top: 0; }
   .digest .summary { display: block; color: var(--tertiary); font-size: 13.5px; margin-top: 2px; }
   .digest .new { color: var(--accent); font-weight: 500; font-size: 11.5px; letter-spacing: 0.04em; }
+  .digest .software { display: inline-block; color: #fff; background: var(--accent); font-weight: 500; font-size: 10.5px; letter-spacing: 0.06em; padding: 1px 6px; margin-right: 4px; vertical-align: 1px; }
+  .digest li.is-software { border-left: 3px solid var(--accent); padding-left: 8px; margin-left: -11px; }
+  .digest .why { display: block; color: var(--secondary); font-size: 12.5px; margin-top: 1px; }
+  .digest.software-only li:not(.is-software) { display: none; }
+  .toggle { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; color: var(--secondary); cursor: pointer; }
   .digest .failed { color: var(--ink); background: var(--card); padding: 0 4px; }
   .empty { color: var(--secondary); border: 1px solid var(--hairline); padding: 24px; }
   footer .bar { color: var(--meta); font-size: 12.5px; }
@@ -83,9 +88,11 @@
       <div class="stats-grid">
         <div><div class="stat" id="s-new">–</div><div class="label">new since previous run</div></div>
         <div><div class="stat" id="s-total">–</div><div class="label">total in window</div></div>
+        <div><div class="stat" id="s-software">–</div><div class="label">software-related</div></div>
         <div><div class="stat" id="s-failed">–</div><div class="label">sources failed</div></div>
       </div>
       <div class="downloads mono">
+        <label class="toggle"><input type="checkbox" id="sw-only"> Software only</label>
         <a id="dl-md" href="#">Download digest (.md)</a>
         <a id="dl-csv" href="#">Download opportunities (.csv)</a>
         <a href="https://github.com/gregorypejic-dot/space-opps" rel="noopener">Repository</a>
@@ -129,6 +136,7 @@
     }
     out += esc(text.slice(last));
     out = out.replace(/\*\*NEW\*\*/g, '<span class="new">NEW</span>');
+    out = out.replace(/\*\*SOFTWARE\*\*/g, '<span class="software">SOFTWARE</span>');
     out = out.replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>");
     out = out.replace(/(: )(FAILED[^<]*)/g, '$1<span class="failed">$2</span>');
     return out;
@@ -144,10 +152,12 @@
         closeList(); html.push("<h" + m[1].length + ">" + inline(m[2]) + "</h" + m[1].length + ">");
       } else if ((m = /^\s*[-*]\s+(.*)$/.exec(line))) {
         if (!inList) { html.push("<ul>"); inList = true; }
-        html.push("<li>" + inline(m[1]) + "</li>");
+        var cls = /\*\*SOFTWARE\*\*/.test(m[1]) ? ' class="is-software"' : "";
+        html.push("<li" + cls + ">" + inline(m[1]) + "</li>");
       } else if (inList && /^\s{2,}\S/.test(line)) {
-        // Indented continuation line = the item's one-sentence summary.
-        html[html.length - 1] = html[html.length - 1].replace(/<\/li>$/, '<span class="summary">' + inline(line.trim()) + "</span></li>");
+        // Indented continuation lines = the one-sentence summary, then an optional "Software: ..." reason line.
+        var t = line.trim(), kind = /^Software: /.test(t) ? "why" : "summary";
+        html[html.length - 1] = html[html.length - 1].replace(/<\/li>$/, '<span class="' + kind + '">' + inline(t) + "</span></li>");
       } else if (line.trim() === "") {
         closeList();
       } else {
@@ -166,6 +176,7 @@
     });
     $("s-new").textContent = run.new == null ? "–" : run.new;
     $("s-total").textContent = run.total == null ? "–" : run.total;
+    $("s-software").textContent = run.software == null ? "–" : run.software;
     $("s-failed").textContent = (run.failed_sources || []).length;
     $("dl-md").href = run.md;
     $("dl-csv").hidden = !run.csv;
@@ -212,6 +223,9 @@
         show(runs.filter(function (r) { return r.date === wanted; })[0] || runs[0]);
       };
       window.addEventListener("hashchange", showFromHash);
+      $("sw-only").addEventListener("change", function () {
+        $("digest").classList.toggle("software-only", this.checked);
+      });
       showFromHash();
     })
     .catch(function () {
