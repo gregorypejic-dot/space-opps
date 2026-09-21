@@ -50,6 +50,17 @@ PAGES = [
         "link_filter": None,
     },
     {
+        # Salesforce Experience Cloud site: the event list is rendered client-side, so the
+        # plain-HTML pass usually yields 0 results. Kept so the digest reports the gap.
+        "name": "ssc-events",
+        "agency": "USSF",
+        "url": "https://sscfrontdoor.experience.crmforce.mil/SSCFrontDoor/s/events",
+        "scope": "main, body",
+        "space_only": False,
+        "link_filter": None,
+        "extra_keywords": ["event", "industry day", "reverse industry", "webinar", "pitch", "opportunit", "rfi", "rfp"],
+    },
+    {
         "name": "spacewerx",
         "agency": "USSF",
         "url": "https://spacewerx.us/",
@@ -85,11 +96,12 @@ PAGES = [
     {
         "name": "nstxl-spec",
         "agency": "USSF",
-        "url": "https://nstxl.org/nstxl-opportunities/",
+        "url": "https://info.nstxl.org/spec",
         "scope": "main, #content, body",
         "space_only": False,
         "link_filter": None,
-        "extra_keywords": ["spec", "rfp", "rwp", "rfs", "rfi", "solicitation", "industry day", "opportunit"],
+        "extra_keywords": ["spec", "rfp", "rwp", "rfs", "rfi", "solicitation", "industry day", "opportunit",
+                           "register", "event", "summit", "gmm"],
     },
     {
         "name": "gsa-aas",
@@ -104,6 +116,10 @@ PAGES = [
 
 NAV_NOISE = {"home", "about", "contact", "login", "log in", "sign in", "privacy", "accessibility",
              "faq", "faqs", "search", "menu", "skip to main content", "back to top", "careers", "news"}
+
+# CTA anchors whose text says nothing about the item; the nearest preceding heading is used instead.
+GENERIC_LINK_TEXT = {"register here", "register now", "register", "learn more", "read more", "click here",
+                     "more info", "more information", "view", "details", "apply now", "apply here", "here"}
 
 
 NSPIRES_SUMMARY = "https://nspires.nasaprs.com/external/solicitations/summary!init.do?solId={sid}&path=open"
@@ -163,6 +179,11 @@ def _scrape(s: requests.Session, page: dict, since: date) -> list[Opportunity]:
         url = urljoin(page["url"], href)
         if page.get("link_filter") and page["link_filter"] not in url.lower() and page["link_filter"] not in text.lower():
             continue
+        if text.lower().rstrip(".!»") in GENERIC_LINK_TEXT:
+            heading = a.find_previous(["h1", "h2", "h3", "h4", "strong"])
+            heading_text = clean(heading.get_text(" ")) if heading else ""
+            if len(heading_text) >= 8:
+                text = f"{heading_text} ({text})"
         hits = matches_space(text, keywords)
         if not page["space_only"] and not hits:
             continue

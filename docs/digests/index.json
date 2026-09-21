@@ -1,0 +1,12 @@
+[
+ {
+  "date": "2026-09-21",
+  "total": 168,
+  "new": 168,
+  "failed_sources": [
+   "ssc-front-door"
+  ],
+  "md": "digests/2026-09-21.md",
+  "csv": "digests/2026-09-21.csv"
+ }
+]
