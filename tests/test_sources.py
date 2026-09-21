@@ -10,7 +10,7 @@ from bs4 import BeautifulSoup
 
 from space_opps import publish
 from space_opps.sources import html_pages
-from space_opps.util import parse_date
+from space_opps.util import matches_space, parse_date
 
 NSPIRES_PAGE = next(p for p in html_pages.PAGES if p["name"] == "nspires")
 
@@ -121,6 +121,31 @@ def test_dtic_accordion_titles_links_by_agency_and_keeps_open_table_rows(monkeyp
     assert got[1].notice_id == "W56KGU-26-R-0001"
     assert got[1].url == "https://sam.gov/search/?keywords=W56KGU-26-R-0001"
     assert got[1].deadline == date(2099, 1, 1)
+
+
+@pytest.mark.parametrize("title", [
+    "General Services Administration (GSA) seeks to lease office space in Bismarck, ND",
+    "Hangar Space in or Near Alpine, Texas",
+    "USDA seeking 2,300-2,722 ABOA SF, Office/Warehouse/Scientific Support Space, in Cocoa, FL",
+    "U.S. Government Space Required: Woodland, CA",
+    "Confined Space Assessment - Beltsville MD",
+    "53--SPACER,SLEEVE",
+    "Marine Corps Cyberspace Environment (MCCE) Operational Support Services",
+    "CMC Greenspace IFB",
+])
+def test_real_estate_and_compound_space_is_not_outer_space(title):
+    assert matches_space(title) == []
+
+
+@pytest.mark.parametrize("title", [
+    "Industry Day: Vandenberg Space Force Base (VSFB) Spaceport of the Future",
+    "ARPA-H Comprehensive Organ System Modeling in Outer Space (COSMOS)",
+    "Laser Interferometer Space Antenna (LISA) Frequency Reference System",
+    "Pituffik Space Base Project Delivery Method Market Research",
+    "Space Systems Command leases ground station capacity for satellite downlink",
+])
+def test_outer_space_titles_still_match(title):
+    assert "space" in matches_space(title)
 
 
 def test_parse_date_rejects_impossible_dates():

@@ -9,7 +9,7 @@ from typing import Iterable, Optional
 import requests
 from requests.adapters import HTTPAdapter
 
-from .config import SPACE_KEYWORDS, TARGET_AGENCIES, USER_AGENT
+from .config import REAL_ESTATE_SPACE, SPACE_KEYWORDS, TARGET_AGENCIES, USER_AGENT
 
 log = logging.getLogger("space_opps")
 
@@ -59,12 +59,17 @@ def matches_space(text: str, keywords: Iterable[str] = SPACE_KEYWORDS) -> list[s
     low = text.lower()
     hits = []
     for kw in keywords:
-        if len(kw) <= 4:
-            if re.search(rf"\b{re.escape(kw)}\b", low):
-                hits.append(kw)
-        elif kw in low:
+        tail = r"\b" if len(kw) <= 4 else ""
+        if re.search(rf"\b{re.escape(kw)}{tail}", low):
             hits.append(kw)
+    if hits == ["space"] and (_is_real_estate(low) or not re.search(r"\bspace(?!r\b|rs\b)", low)):
+        return []
     return hits
+
+
+def _is_real_estate(low: str) -> bool:
+    """'space' as in office/hangar/warehouse leasing, not outer space."""
+    return any(re.search(pat, low) for pat in REAL_ESTATE_SPACE)
 
 
 def classify_agency(text: str) -> Optional[str]:
