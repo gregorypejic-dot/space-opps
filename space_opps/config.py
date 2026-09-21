@@ -54,11 +54,13 @@ TARGET_AGENCIES = {
     "NRO": ["national reconnaissance office"],
     "SDA": ["space development agency"],
     "MDA": ["missile defense agency"],
+    "DOC-OSC": ["office of space commerce", "space commerce"],
+    "NOAA": ["national oceanic and atmospheric administration", "noaa", "nesdis"],
     "GSA-AAS": ["federal acquisition service", "assisted acquisition", "fedsim"],
 }
 
 # For agency-scoped SAM queries, every notice from these is kept even without a space keyword.
-ALWAYS_KEEP_AGENCIES = {"USSF", "NASA", "NRO", "SDA"}
+ALWAYS_KEEP_AGENCIES = {"USSF", "NASA", "NRO", "SDA", "DOC-OSC"}
 
 # Space-relevant NAICS / PSC prefixes used to widen SAM.gov filtering.
 SPACE_NAICS = ["336414", "336415", "336419", "517410", "541715", "927110"]

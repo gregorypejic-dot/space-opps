@@ -32,6 +32,9 @@ AGENCY_QUERIES = [
     "NATIONAL RECONNAISSANCE OFFICE",
     "SPACE DEVELOPMENT AGENCY",
     "FEDERAL ACQUISITION SERVICE",  # GSA FAS incl. Assisted Acquisition Services / FEDSIM
+    # Commerce: NOAA (NESDIS satellites, Office of Space Commerce, CRSRA); kept only on a space keyword
+    # hit unless the office is the Office of Space Commerce itself.
+    "NATIONAL OCEANIC AND ATMOSPHERIC ADMINISTRATION",
 ]
 
 TITLE_QUERIES = ["space", "satellite", "launch", "orbit", "spacecraft", "lunar", "missile warning"]

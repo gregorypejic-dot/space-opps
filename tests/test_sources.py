@@ -76,6 +76,9 @@ def test_page_urls_are_current():
     assert urls["ssc-events"] == "https://sscfrontdoor.experience.crmforce.mil/SSCFrontDoor/s/events"
     assert urls["dtic-dod-agencies"] == "https://defenseinnovationmarketplace.dtic.mil/business-opportunities/dod-agencies/"
     assert urls["nspires"].startswith("https://nspires.nasaprs.com/external/solicitations/solicitationsJSON.do")
+    assert urls["osc-news"] == "https://space.commerce.gov/feed/"
+    assert urls["osc-tracss"] == "https://space.commerce.gov/traffic-coordination-system-for-space-tracss/"
+    assert urls["noaa-tpo"] == "https://techpartnerships.noaa.gov/"
     assert all(u.startswith("https://") for u in urls.values())
     assert len(urls) == len(html_pages.PAGES), "duplicate source names"
 
@@ -97,6 +100,41 @@ def test_generic_link_text_uses_nearest_heading(monkeypatch):
     got = html_pages._scrape(None, page, date(2026, 1, 1))
     assert [o.url for o in got] == ["https://info.nstxl.org/gps-gen4"]
     assert got[0].title.startswith("Space Enterprise Consortium (SpEC) GPS Gen4")
+
+
+def test_rss_feed_keeps_recent_keyword_posts_only(monkeypatch):
+    recent = (date.today() - timedelta(days=2)).strftime("%a, %d %b %Y 12:00:00 +0000")
+    xml = f"""<?xml version="1.0"?><rss version="2.0"><channel>
+      <item><title>OSC Seeks Proposals for Space Economy Study</title>
+        <link>https://space.commerce.gov/osc-seeks-proposals/</link><pubDate>{recent}</pubDate>
+        <description><![CDATA[<p>OSC requires a study of the U.S. commercial space economy.</p>]]></description></item>
+      <item><title>Staff picnic photos</title><link>https://space.commerce.gov/picnic/</link>
+        <pubDate>{recent}</pubDate><description>Fun was had.</description></item>
+      <item><title>Old TraCSS industry day</title><link>https://space.commerce.gov/old/</link>
+        <pubDate>Mon, 01 Jan 2024 00:00:00 +0000</pubDate><description>x</description></item>
+      <item><title>Bad link space item</title><link>javascript:alert(1)</link><pubDate>{recent}</pubDate></item>
+    </channel></rss>"""
+
+    class R:
+        content = xml.encode()
+
+    monkeypatch.setattr(html_pages, "get", lambda s, url: R())
+    page = next(p for p in html_pages.PAGES if p["name"] == "osc-news")
+    got = html_pages._scrape(None, page, date.today() - timedelta(days=8))
+    assert [o.url for o in got] == ["https://space.commerce.gov/osc-seeks-proposals/"]
+    assert got[0].agency == "DOC-OSC" and got[0].posted == date.today() - timedelta(days=2)
+    assert got[0].description == "OSC requires a study of the U.S. commercial space economy."
+
+
+def test_self_item_page_reports_its_own_status_when_linkless(monkeypatch):
+    class R:
+        text = "<div id='content'><h1>SBIR Funding Opportunities</h1><p>*** The next NOFO opens Fall 2026. ***</p></div>"
+
+    monkeypatch.setattr(html_pages, "get", lambda s, url: R())
+    page = next(p for p in html_pages.PAGES if p["name"] == "noaa-sbir")
+    (opp,) = html_pages._scrape(None, page, date(2026, 1, 1))
+    assert opp.title == "SBIR Funding Opportunities" and opp.url == page["url"]
+    assert "NOFO opens Fall 2026" in opp.description
 
 
 def test_dtic_accordion_titles_links_by_agency_and_keeps_open_table_rows(monkeypatch):
@@ -205,3 +243,17 @@ def test_index_html_escapes_hrefs_exactly_once():
     assert 'href="https://h/s?solId=%7B1%7D&amp;path=open"' in out
     assert "&amp;amp;" not in out
     assert ">A &amp; B &lt;x&gt;</a>" in out
+
+
+@pytest.mark.parametrize("path,label", [
+    ("COMMERCE, DEPARTMENT OF.NATIONAL OCEANIC AND ATMOSPHERIC ADMINISTRATION.OFFICE OF SPACE COMMERCE", "DOC-OSC"),
+    ("COMMERCE, DEPARTMENT OF.NATIONAL OCEANIC AND ATMOSPHERIC ADMINISTRATION.NESDIS", "NOAA"),
+    ("COMMERCE, DEPARTMENT OF.NATIONAL OCEANIC AND ATMOSPHERIC ADMINISTRATION.NMFS", "NOAA"),
+])
+def test_commerce_agencies_are_classified(path, label):
+    from space_opps.config import ALWAYS_KEEP_AGENCIES
+    from space_opps.util import classify_agency
+
+    assert classify_agency(path) == label
+    # OSC is always in scope; the rest of NOAA (fisheries, ships, weather) needs a space keyword.
+    assert (label in ALWAYS_KEEP_AGENCIES) == (label == "DOC-OSC")
