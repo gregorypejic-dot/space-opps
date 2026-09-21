@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Space opportunities digest</title>
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self'; script-src 'self' 'unsafe-inline'">
+<link rel="icon" href="assets/cognition-lockup-black.svg">
+<style>
+  :root {
+    --canvas: #FCFCFC; --ink: #141414; --secondary: #7D7D7D; --tertiary: #666666;
+    --hairline: #E7E7E7; --card: #F7F6F5; --accent: #2600FF; --meta: #B7B7B7;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; background: var(--canvas); color: var(--ink);
+    font-family: "NB International Pro", Geist, system-ui, -apple-system, "Segoe UI", sans-serif;
+    font-size: 15px; line-height: 1.5; }
+  a { color: var(--accent); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+  code, .mono { font-family: "JetBrains Mono", "Geist Mono", ui-monospace, Menlo, monospace; font-size: 12.5px; }
+  header, footer { border-bottom: 1px solid var(--hairline); }
+  footer { border-bottom: 0; border-top: 1px solid var(--hairline); }
+  .bar { max-width: 1120px; margin: 0 auto; padding: 18px 24px; display: flex; align-items: center; justify-content: space-between; gap: 24px; }
+  .bar img { height: 22px; display: block; }
+  .bar .mono { color: var(--tertiary); }
+  main { max-width: 1120px; margin: 0 auto; padding: 32px 24px 64px; display: grid; grid-template-columns: 280px 1fr; gap: 40px; }
+  @media (max-width: 800px) { main { grid-template-columns: 1fr; } }
+  h1 { font-size: 28px; font-weight: 500; letter-spacing: -0.01em; margin: 0 0 6px; }
+  h2 { font-size: 17px; font-weight: 500; margin: 32px 0 10px; }
+  .lede { color: var(--secondary); margin: 0 0 28px; }
+  .eyebrow { color: var(--tertiary); text-transform: uppercase; letter-spacing: 0.06em; font-size: 11.5px; margin-bottom: 10px; }
+  .runs { list-style: none; margin: 0; padding: 0; border-top: 1px solid var(--hairline); }
+  .runs li { border-bottom: 1px solid var(--hairline); }
+  .runs button { all: unset; display: block; width: 100%; padding: 12px 10px; cursor: pointer; }
+  .runs button:hover { background: var(--card); }
+  .runs li.active button { background: var(--card); box-shadow: inset 3px 0 0 var(--accent); }
+  .runs .date { font-weight: 500; }
+  .runs .stats { color: var(--secondary); font-size: 12.5px; margin-top: 2px; }
+  .runs .warn { color: var(--tertiary); }
+  .card { background: var(--card); border: 1px solid var(--hairline); padding: 16px 18px; margin: 0 0 24px; }
+  .card .stat { font-size: 34px; font-weight: 300; color: var(--accent); line-height: 1.1; }
+  .card .label { color: var(--secondary); font-size: 12.5px; }
+  .stats-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 18px; }
+  .downloads { display: flex; gap: 18px; flex-wrap: wrap; margin-top: 12px; }
+  .digest h1 { font-size: 22px; margin-top: 0; }
+  .digest h2 { border-bottom: 1px solid var(--hairline); padding-bottom: 6px; }
+  .digest ul { padding-left: 20px; margin: 0; }
+  .digest li { margin: 6px 0; }
+  .digest li + li { border-top: 0; }
+  .digest .new { color: var(--accent); font-weight: 500; font-size: 11.5px; letter-spacing: 0.04em; }
+  .digest .failed { color: var(--ink); background: var(--card); padding: 0 4px; }
+  .empty { color: var(--secondary); border: 1px solid var(--hairline); padding: 24px; }
+  footer .bar { color: var(--meta); font-size: 12.5px; }
+</style>
+</head>
+<body>
+<header>
+  <div class="bar">
+    <img src="assets/cognition-lockup-black.svg" alt="Cognition">
+    <span class="mono" id="updated">Loading…</span>
+  </div>
+</header>
+
+<main>
+  <aside>
+    <div class="eyebrow">Weekly runs</div>
+    <ul class="runs" id="runs"></ul>
+  </aside>
+
+  <section>
+    <h1>Space opportunities digest</h1>
+    <p class="lede">Federal contracting and research opportunities relevant to the space enterprise, collected every Monday from SAM.gov, Grants.gov, NSPIRES, NASA SBIR/STTR, SpaceWERX, SDA, DIU, NSTXL SpEC, GSA AAS and SSC Front Door.</p>
+
+    <div class="card" id="summary" hidden>
+      <div class="stats-grid">
+        <div><div class="stat" id="s-new">–</div><div class="label">new since previous run</div></div>
+        <div><div class="stat" id="s-total">–</div><div class="label">total in window</div></div>
+        <div><div class="stat" id="s-failed">–</div><div class="label">sources failed</div></div>
+      </div>
+      <div class="downloads mono">
+        <a id="dl-md" href="#">Download digest (.md)</a>
+        <a id="dl-csv" href="#">Download opportunities (.csv)</a>
+        <a href="https://github.com/gregorypejic-dot/space-opps" rel="noopener">Repository</a>
+      </div>
+    </div>
+
+    <article class="digest" id="digest"><div class="empty">Loading the latest digest…</div></article>
+  </section>
+</main>
+
+<footer>
+  <div class="bar">
+    <img src="assets/cognition-lockup-black.svg" alt="Cognition" style="height:16px">
+    <span>Space opportunities digest | Generated weekly by a Devin automation</span>
+  </div>
+</footer>
+
+<script>
+(function () {
+  "use strict";
+  var $ = function (id) { return document.getElementById(id); };
+
+  function esc(s) {
+    return String(s).replace(/[&<>"']/g, function (c) {
+      return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c];
+    });
+  }
+
+  // Only http(s) links are rendered as anchors; anything else stays plain text.
+  function safeHref(u) { return /^https?:\/\/[^\s<>"']+$/i.test(u) ? u : null; }
+
+  function inline(text) {
+    var out = esc(text);
+    out = out.replace(/\[([^\]]+)\]\(([^)\s]+)\)/g, function (m, label, url) {
+      var href = safeHref(url);
+      return href ? '<a href="' + esc(href) + '" rel="noopener">' + label + "</a>" : label;
+    });
+    out = out.replace(/\*\*NEW\*\*/g, '<span class="new">NEW</span>');
+    out = out.replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>");
+    out = out.replace(/(: )(FAILED[^<]*)/g, '$1<span class="failed">$2</span>');
+    return out;
+  }
+
+  // Minimal renderer for the digest's own Markdown subset: #/## headings, "- " bullets, paragraphs.
+  function renderMarkdown(md) {
+    var html = [], inList = false, lines = md.split(/\r?\n/);
+    function closeList() { if (inList) { html.push("</ul>"); inList = false; } }
+    lines.forEach(function (line) {
+      var m;
+      if ((m = /^(#{1,3})\s+(.*)$/.exec(line))) {
+        closeList(); html.push("<h" + m[1].length + ">" + inline(m[2]) + "</h" + m[1].length + ">");
+      } else if ((m = /^\s*[-*]\s+(.*)$/.exec(line))) {
+        if (!inList) { html.push("<ul>"); inList = true; }
+        html.push("<li>" + inline(m[1]) + "</li>");
+      } else if (line.trim() === "") {
+        closeList();
+      } else {
+        closeList(); html.push("<p>" + inline(line) + "</p>");
+      }
+    });
+    closeList();
+    return html.join("\n");
+  }
+
+  var runs = [];
+
+  function show(run) {
+    document.querySelectorAll(".runs li").forEach(function (li) {
+      li.classList.toggle("active", li.dataset.date === run.date);
+    });
+    $("s-new").textContent = run.new == null ? "–" : run.new;
+    $("s-total").textContent = run.total == null ? "–" : run.total;
+    $("s-failed").textContent = (run.failed_sources || []).length;
+    $("dl-md").href = run.md;
+    $("dl-csv").hidden = !run.csv;
+    if (run.csv) $("dl-csv").href = run.csv;
+    $("summary").hidden = false;
+    $("digest").innerHTML = '<div class="empty">Loading ' + esc(run.date) + "…</div>";
+    fetch(run.md, { cache: "no-store" })
+      .then(function (r) { if (!r.ok) throw new Error(r.status); return r.text(); })
+      .then(function (md) { $("digest").innerHTML = renderMarkdown(md); })
+      .catch(function () { $("digest").innerHTML = '<div class="empty">Could not load this digest.</div>'; });
+    if (location.hash !== "#" + run.date) history.replaceState(null, "", "#" + run.date);
+  }
+
+  function renderList() {
+    var ul = $("runs");
+    ul.innerHTML = "";
+    runs.forEach(function (run) {
+      var li = document.createElement("li");
+      li.dataset.date = run.date;
+      var failed = (run.failed_sources || []).length;
+      li.innerHTML =
+        '<button type="button"><div class="date">' + esc(run.date) + "</div>" +
+        '<div class="stats">' + (run.new == null ? "" : esc(run.new) + " new · ") +
+        (run.total == null ? "" : esc(run.total) + " total") +
+        (failed ? ' <span class="warn">· ' + failed + " failed</span>" : "") + "</div></button>";
+      li.querySelector("button").addEventListener("click", function () { show(run); });
+      ul.appendChild(li);
+    });
+  }
+
+  fetch("digests/index.json", { cache: "no-store" })
+    .then(function (r) { if (!r.ok) throw new Error(r.status); return r.json(); })
+    .then(function (data) {
+      runs = Array.isArray(data) ? data.filter(function (r) { return /^\d{4}-\d{2}-\d{2}$/.test(r.date) && /^digests\/[\w.-]+\.md$/.test(r.md); }) : [];
+      if (!runs.length) {
+        $("updated").textContent = "No digests yet";
+        $("digest").innerHTML = '<div class="empty">No digests published yet. The first weekly run will populate this page.</div>';
+        return;
+      }
+      $("updated").textContent = "Latest run " + runs[0].date;
+      renderList();
+      var wanted = location.hash.slice(1);
+      var pick = runs.filter(function (r) { return r.date === wanted; })[0] || runs[0];
+      show(pick);
+    })
+    .catch(function () {
+      $("updated").textContent = "Index unavailable";
+      $("digest").innerHTML = '<div class="empty">Could not load digests/index.json.</div>';
+    });
+})();
+</script>
+</body>
+</html>
