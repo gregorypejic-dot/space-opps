@@ -266,3 +266,68 @@ def test_commerce_agencies_are_classified(path, label):
     assert classify_agency(path) == label
     # OSC is always in scope; the rest of NOAA (fisheries, ships, weather) needs a space keyword.
     assert (label in ALWAYS_KEEP_AGENCIES) == (label == "DOC-OSC")
+
+
+DSIP_PAGE = next(p for p in html_pages.PAGES if p["name"] == "dod-sbir")
+
+
+def _dsip(monkeypatch, rows, details):
+    class R:
+        def __init__(self, body):
+            self.body = body
+
+        def json(self):
+            return self.body
+
+    def fake_get(s, url, **kw):
+        if url == DSIP_PAGE["url"]:
+            assert kw["params"]["page"] == 0
+            return R({"total": len(rows), "data": rows})
+        tid = url.rsplit("/", 2)[-2]
+        if tid not in details:
+            raise ValueError("boom")
+        return R(details[tid])
+
+    monkeypatch.setattr(html_pages, "get", fake_get)
+    return html_pages._scrape(None, DSIP_PAGE, date(2026, 9, 1))
+
+
+def test_dsip_topics_filtered_to_space(monkeypatch):
+    rows = [
+        {"topicId": "abc_1", "topicCode": "DAF26BX06-DV513", "topicTitle": "Autonomous On Orbit Logistics",
+         "component": "USAF", "program": "SBIR", "topicStatus": "Open", "cycleName": "DOD_SBIR_2026_P1_CBX",
+         "releaseNumber": 6, "solicitationTitle": "DoW SBIR 2026 CSO",
+         "topicStartDate": 1790121600000, "topicEndDate": 1792540800000},
+        {"topicId": "abc_2", "topicCode": "OSW26BZ06-DV027", "topicTitle": "Graphene Focal Plane Arrays",
+         "component": "OSD", "program": "SBIR", "topicStatus": "Open", "cycleName": "DOD_SBIR_2026_P1_CBZ",
+         "releaseNumber": 6},
+        {"topicId": "abc_3", "topicCode": "DAF26BX06-DV026", "topicTitle": "Air Launched Drone Swarms",
+         "component": "USAF", "program": "SBIR", "topicStatus": "Open", "cycleName": "X", "releaseNumber": 1},
+        {"topicId": "abc_4", "topicCode": "OSW26TZ06-NV008", "topicTitle": "Bio-inspired Underwater Teams",
+         "component": "OSD", "program": "STTR", "topicStatus": "Open", "cycleName": "X", "releaseNumber": 1},
+        {"topicId": "bad id!", "topicCode": "Z", "topicTitle": "Skipped", "component": "OSD"},
+    ]
+    details = {
+        "abc_1": {"keywords": "space logistics; orbital refueling", "technologyAreas": ["Space Platforms"],
+                  "objective": "<p>Accelerate an on-orbit logistics enterprise. Second sentence.</p>"},
+        "abc_2": {"keywords": "infrared; graphene", "technologyAreas": ["Sensors", "Space Platforms"]},
+        "abc_3": {"keywords": "drones; swarming", "technologyAreas": ["Air Platform"]},
+        # abc_4 has no details entry -> details fetch fails, keyword "Teams" alone is not space
+    }
+    got = {o.notice_id: o for o in _dsip(monkeypatch, rows, details)}
+    assert sorted(got) == ["DAF26BX06-DV513", "OSW26BZ06-DV027"]
+    o = got["DAF26BX06-DV513"]
+    assert o.url == "https://www.dodsbirsttr.mil/topics-app/?baa=DOD_SBIR_2026_P1_CBX&release=6"
+    assert o.posted == date(2026, 9, 23) and o.deadline == date(2026, 10, 21)
+    assert o.notice_type == "SBIR topic (Open)" and "orbit" in o.tags
+    assert o.description.startswith("USAF | DoW SBIR 2026 CSO | Space Platforms | Accelerate")
+    assert got["OSW26BZ06-DV027"].tags == ["space platforms"]
+
+
+def test_dsip_weak_keywords_alone_do_not_qualify(monkeypatch):
+    rows = [{"topicId": "w1", "topicCode": "A", "topicTitle": "Ground and Air Launched Drone Swarms",
+             "component": "USAF", "topicStatus": "Open"},
+            {"topicId": "w2", "topicCode": "B", "topicTitle": "Propulsion for underwater vehicles",
+             "component": "NAVY", "topicStatus": "Open"}]
+    details = {"w1": {"keywords": "launch"}, "w2": {"keywords": "propulsion; payload"}}
+    assert _dsip(monkeypatch, rows, details) == []
