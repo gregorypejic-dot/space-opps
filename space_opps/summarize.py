@@ -43,7 +43,6 @@ _SOURCE_TEMPLATES = {
     "spacewerx": "SpaceWERX (Space Force innovation arm) announcement.",
     "sda": "Space Development Agency opportunities-page item.",
     "diu": "Defense Innovation Unit commercial solutions opening.",
-    "dod-sbir": "DoD SBIR/STTR topic.",
     "nstxl-spec": "Space Enterprise Consortium (NSTXL) item; full RFPs are member-only.",
     "gsa-aas": "GSA Assisted Acquisition Services industry page link.",
     "ssc-events": "Space Systems Command Front Door industry event.",
@@ -65,6 +64,9 @@ def _title(code: str, table: dict[str, str]) -> str:
         return ""
     name = re.sub(r"\s*\([^)]*\)", "", name)  # drop "(except …)" qualifiers
     return name.capitalize() if name.isupper() else name
+
+
+_SENTENCE_END = re.compile(r"(?<!\bU\.S\.)(?<!\bU\.S\.A\.)(?<!\be\.g\.)(?<!\bi\.e\.)(?<=[.!?])\s+")
 
 
 def _clip(text: str, limit: int = MAX_LEN) -> str:
@@ -113,7 +115,7 @@ def _first_prose_sentence(opp: Opportunity) -> str:
     title = re.sub(r"\s+", " ", opp.title).strip().lower()
     if text.lower().startswith(title):
         text = text[len(title):].lstrip(" -—:|")
-    for sent in re.split(r"(?<!\bU\.S\.)(?<!\bU\.S\.A\.)(?<=[.!?])\s+", text):
+    for sent in re.split(_SENTENCE_END, text):
         sent = re.sub(r"^[A-Z][a-z]+ \d{1,2}, \d{4}\s+", "", sent.lstrip(" -–—:|"))
         low = sent.lower()
         if len(sent) < 25 or low.startswith(title) or title.startswith(low.rstrip(".")):
@@ -135,6 +137,18 @@ def summarize(opp: Opportunity) -> str:
         dates = re.findall(r"\b\d{1,2}/\d{1,2}/\d{2,4}\b", opp.description or "")
         when = f"; opens {dates[0]}, closes {dates[1]}" if len(dates) >= 2 else ""
         return f"NASA SBIR/STTR program solicitation{when}."
+    if opp.source == "dod-sbir":
+        # description is "component | solicitation | technology areas | objective"
+        parts = [p.strip() for p in (opp.description or "").split(" | ", 3)] + ["", "", "", ""]
+        component, solicitation, _areas, objective = parts[:4]
+        kind = opp.notice_type or "SBIR/STTR topic (Open)"
+        head = f"{component or 'DoD'} {kind[:kind.find(' (')] if ' (' in kind else kind}"
+        head += f" under {solicitation}" if solicitation else " on DSIP"
+        m = re.search(r"\((.*?)\)", kind)
+        if m:
+            head += f", {m.group(1).lower()}"
+        first = re.split(_SENTENCE_END, objective)[0] if objective else ""
+        return _clip(_sentence(f"{head}: {first}" if first else head))
     if opp.source == "dtic-dod-agencies":
         agency = opp.description or "a Defense Agency"
         return f"Link to {agency}'s solicitation/BAA page, listed on the DTIC Defense Innovation Marketplace."

@@ -7,8 +7,10 @@ will silently reduce results, so main.py warns when a page yields zero links.
 """
 from __future__ import annotations
 
+import json
+import re
 import xml.etree.ElementTree as ET
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta, timezone
 from email.utils import parsedate_to_datetime
 from urllib.parse import quote, urljoin, urlparse
 
@@ -88,12 +90,13 @@ PAGES = [
         "link_filter": "submit-solution",
     },
     {
+        # DSIP (DoD SBIR/STTR Innovation Portal). The topics app is client-rendered but backed by
+        # a public, no-login JSON API; this pulls every Open + Pre-Release topic in the active BAAs
+        # (component open topics and focus topics alike) and keeps the outer-space ones.
         "name": "dod-sbir",
         "agency": "DOD",
-        "url": "https://www.dodsbirsttr.mil/topics-app/",
-        "scope": "body",
-        "space_only": False,
-        "link_filter": None,
+        "url": "https://www.dodsbirsttr.mil/topics/api/public/topics/search",
+        "parser": "dsip_json",
     },
     {
         "name": "nstxl-spec",
@@ -230,6 +233,86 @@ def _scrape_nspires_json(s: requests.Session, page: dict, since: date) -> list[O
     return out
 
 
+DSIP_TOPICS_APP = "https://www.dodsbirsttr.mil/topics-app/"
+DSIP_DETAILS = "https://www.dodsbirsttr.mil/topics/api/public/topics/{tid}/details"
+DSIP_OPEN, DSIP_PRE_RELEASE = 591, 592  # topics.release_status lookup values used by the app
+DSIP_SEARCH = {
+    "searchText": None,
+    "components": None,
+    "programYear": None,
+    "solicitationCycleNames": ["openTopics"],
+    "releaseNumbers": [],
+    "topicReleaseStatus": [DSIP_OPEN, DSIP_PRE_RELEASE],
+    "modernizationPriorities": [],
+    "sortBy": "finalTopicCode,asc",
+}
+DSIP_PAGE_SIZE = 100
+_DSIP_ID_RE = re.compile(r"[A-Za-z0-9_-]{1,80}")
+# Keywords too generic to carry a DSIP topic on their own (drone launch, underwater propulsion).
+DSIP_WEAK_KEYWORDS = {"launch", "propulsion", "payload", "telemetry", "reconnaissance"}
+
+
+def _epoch_ms(value) -> date | None:
+    if not isinstance(value, (int, float)) or value <= 0:
+        return None
+    return datetime.fromtimestamp(value / 1000, tz=timezone.utc).date()
+
+
+def _scrape_dsip_json(s: requests.Session, page: dict, since: date) -> list[Opportunity]:
+    """Open/pre-release DSIP topics that are space-related by title, DSIP keywords, or the
+    'Space Platforms' technology area / 'Space Technology' focus area. Every currently open topic
+    is reported (not only those released in the window) because each is still actionable."""
+    rows: list[dict] = []
+    for page_no in range(50):
+        params = {"searchParam": json.dumps(DSIP_SEARCH), "size": DSIP_PAGE_SIZE, "page": page_no}
+        body = get(s, page["url"], params=params).json()
+        rows.extend(body.get("data") or [])
+        if len(rows) >= int(body.get("total") or 0) or not body.get("data"):
+            break
+    out: list[Opportunity] = []
+    for row in rows:
+        tid = str(row.get("topicId") or "")
+        title = clean(str(row.get("topicTitle") or ""))
+        if not _DSIP_ID_RE.fullmatch(tid) or not title:
+            continue
+        try:
+            det = get(s, DSIP_DETAILS.format(tid=quote(tid, safe=""))).json()
+        except Exception as e:  # noqa: BLE001 - one topic's details must not drop the rest
+            log.warning("dod-sbir: details for %s failed: %s", row.get("topicCode"), e)
+            det = {}
+        keywords = clean(str(det.get("keywords") or ""))
+        tech_areas = [str(t) for t in det.get("technologyAreas") or []]
+        focus = [str(f) for f in det.get("focusAreas") or []]
+        space_area = "Space Platforms" in tech_areas or "Space Technology" in focus
+        hits = matches_space(f"{title} {keywords}")
+        if space_area:
+            hits = hits or ["space platforms"]
+        elif not hits or set(hits) <= DSIP_WEAK_KEYWORDS:
+            continue
+        code = clean(str(row.get("topicCode") or ""))
+        component = clean(str(row.get("component") or ""))
+        cycle = clean(str(row.get("cycleName") or ""))
+        release = row.get("releaseNumber")
+        link = f"{DSIP_TOPICS_APP}?baa={quote(cycle, safe='')}" if cycle else DSIP_TOPICS_APP
+        if cycle and isinstance(release, int):
+            link += f"&release={release}"
+        objective = clean(BeautifulSoup(str(det.get("objective") or ""), "html.parser").get_text(" "))
+        out.append(Opportunity(
+            source=page["name"],
+            title=f"{code} {title}"[:200] if code else title[:200],
+            url=link,
+            agency=page["agency"],
+            notice_id=code or tid,
+            notice_type=f"{row.get('program') or 'SBIR/STTR'} topic ({row.get('topicStatus') or 'Open'})",
+            posted=_epoch_ms(row.get("topicStartDate")),
+            deadline=_epoch_ms(row.get("topicEndDate")),
+            description=f"{component} | {clean(str(row.get('solicitationTitle') or ''))} | "
+                        f"{'; '.join(tech_areas)} | {objective}"[:400],
+            tags=hits,
+        ))
+    return out
+
+
 def _scrape_dtic_accordion(s: requests.Session, page: dict, since: date) -> list[Opportunity]:
     """DTIC's DoD agencies page is one accordion panel per Defense Agency/Field Activity, each
     holding links to that agency's solicitation pages, plus a 'Contract Opportunities' table.
@@ -325,6 +408,8 @@ def _scrape_rss(s: requests.Session, page: dict, since: date) -> list[Opportunit
 def _scrape(s: requests.Session, page: dict, since: date) -> list[Opportunity]:
     if page.get("parser") == "nspires_json":
         return _scrape_nspires_json(s, page, since)
+    if page.get("parser") == "dsip_json":
+        return _scrape_dsip_json(s, page, since)
     if page.get("parser") == "dtic_accordion":
         return _scrape_dtic_accordion(s, page, since)
     if page.get("parser") == "rss":

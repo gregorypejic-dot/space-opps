@@ -61,3 +61,19 @@ def test_long_summary_is_clipped_at_word_boundary():
     o = Opportunity(source="spacewerx", title="T", url="u", description="word " * 100)
     s = summarize(o)
     assert s.endswith("word…") and len(s) <= MAX_LEN + 1
+
+
+def test_dsip_summary_uses_component_solicitation_and_objective():
+    from space_opps.models import Opportunity
+    from space_opps.summarize import summarize
+
+    opp = Opportunity(
+        source="dod-sbir", title="DAF26BX06-DV513 Autonomous On Orbit Logistics", url="u",
+        notice_type="SBIR topic (Open)",
+        description="USAF | DoW SBIR 2026 CSO | Space Platforms | Accelerate an on-orbit logistics enterprise. More.",
+    )
+    assert summarize(opp) == (
+        "USAF SBIR topic under DoW SBIR 2026 CSO, open: Accelerate an on-orbit logistics enterprise."
+    )
+    bare = Opportunity(source="dod-sbir", title="t", url="u")
+    assert summarize(bare) == "DoD SBIR/STTR topic on DSIP, open."

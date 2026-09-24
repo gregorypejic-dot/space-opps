@@ -15,7 +15,7 @@ SDA, GSA Assisted Acquisition Services) and writes a weekly digest.
 | SpaceWERX | HTML | Challenges / open topics. |
 | SDA | HTML | Space Development Agency opportunities page. |
 | DIU | HTML | Open solicitations, filtered to space keywords. |
-| DoD SBIR/STTR | HTML | Topics app is JS-heavy; best-effort. |
+| DoD SBIR/STTR (DSIP) | JSON API | Every Open + Pre-Release topic in the active BAAs (component open topics and focus topics), kept when the title/keywords are outer-space or the topic is tagged "Space Platforms"/"Space Technology". Closed topics are excluded; no login needed. |
 | NSTXL/SpEC | HTML | Space Enterprise Consortium page (info.nstxl.org/spec); generic CTA links ("Register Here") are titled from the nearest heading. Full RFPs are member-only. |
 | GSA AAS | HTML + SAM | gsa.gov/assisted-acquisition-services/industry only links to Interact and a Tableau dashboard; AAS/FEDSIM solicitations themselves are on SAM.gov (covered by the FAS query) or eBuy (login-only, not scraped). |
 | DTIC DoD agencies (DAFA) | HTML | defenseinnovationmarketplace.dtic.mil/business-opportunities/dod-agencies: one accordion per Defense Agency/Field Activity (DARPA, MDA, DTRA, NGA, NSA…); solicitation/BAA links are titled `<Agency>: <link>`. Dead fbo.gov links are dropped. Its "Contract Opportunities" table is historical (last posting 2019); rows are kept only while their response date is in the future and link to a SAM.gov keyword search on the solicitation number. |
