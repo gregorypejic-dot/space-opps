@@ -1,5 +1,16 @@
 [
  {
+  "date": "2026-09-28",
+  "total": 197,
+  "new": 93,
+  "software": 13,
+  "failed_sources": [
+   "ssc-front-door"
+  ],
+  "md": "digests/2026-09-28.md",
+  "csv": "digests/2026-09-28.csv"
+ },
+ {
   "date": "2026-09-22",
   "total": 230,
   "new": 69,
