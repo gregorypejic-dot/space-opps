@@ -1,5 +1,17 @@
 [
  {
+  "date": "2026-10-12",
+  "total": 152,
+  "new": 21,
+  "software": 3,
+  "failed_sources": [
+   "sam.gov",
+   "ssc-front-door"
+  ],
+  "md": "digests/2026-10-12.md",
+  "csv": "digests/2026-10-12.csv"
+ },
+ {
   "date": "2026-10-05",
   "total": 254,
   "new": 152,
