@@ -61,7 +61,7 @@ site redesign is noticed rather than silently dropping results.
 ## Website (GitHub Pages)
 
 `docs/` is a static viewer for the digest history, served at
-https://gregorypejic-dot.github.io/space-opps/ once Pages is enabled
+https://gregorypejic.github.io/space-opps/ once Pages is enabled
 (repo Settings > Pages > Deploy from a branch > `main` / `/docs`). After each run:
 
 ```bash
